@@ -6,7 +6,13 @@ import unittest
 from pathlib import Path
 
 from tbqrfly.config import load_runtime_config, render_placeholders
-from tbqrfly.init_cmd import detect_app_name, run_init
+from tbqrfly.init_cmd import (
+    _generate_export_options_plist,
+    _parse_ios_signing,
+    detect_app_name,
+    ensure_export_options,
+    run_init,
+)
 
 
 class TbqrflyTests(unittest.TestCase):
@@ -56,6 +62,31 @@ class TbqrflyTests(unittest.TestCase):
             self.assertEqual(config.app_name, "demo_app")
             self.assertIn("dev", config.env_names())
             self.assertEqual(code in {0, 2}, True)
+
+    def test_generate_export_options_from_team(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ios_proj = root / "ios" / "Runner.xcodeproj"
+            ios_proj.mkdir(parents=True)
+            (ios_proj / "project.pbxproj").write_text(
+                """
+				DEVELOPMENT_TEAM = ABCDE12345;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.app;
+				CODE_SIGN_STYLE = Automatic;
+""",
+                encoding="utf-8",
+            )
+            team, style = _parse_ios_signing(root)
+            self.assertEqual(team, "ABCDE12345")
+            self.assertEqual(style, "automatic")
+            directory = root / ".tbqrfly"
+            directory.mkdir()
+            rel = ensure_export_options(root, directory)
+            self.assertEqual(rel, ".tbqrfly/ExportOptions.plist")
+            content = (directory / "ExportOptions.plist").read_text(encoding="utf-8")
+            self.assertIn("ABCDE12345", content)
+            self.assertIn("ad-hoc", content)
+            self.assertIn("teamID", _generate_export_options_plist("X"))
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ from pathlib import Path
 from . import __version__
 from .config import ConfigError, find_project_root, load_runtime_config
 from .doctor import collect_checks, print_checks
-from .init_cmd import run_init
+from .init_cmd import repair_export_options, run_init
 from .update_cmd import install_or_update
 from .workflow.run import run_workflow
 
@@ -28,6 +28,11 @@ def build_parser() -> argparse.ArgumentParser:
     init_p = sub.add_parser("init", help="初始化 .tbqrfly 配置目录")
     init_p.add_argument("--project", help="Flutter 项目根目录")
     init_p.add_argument("--force", action="store_true", help="覆盖已有配置")
+    init_p.add_argument(
+        "--repair-export",
+        action="store_true",
+        help="仅根据 Xcode DEVELOPMENT_TEAM 生成/回填 ExportOptions.plist",
+    )
 
     run_p = sub.add_parser("run", help="构建、上传并发送飞书二维码")
     run_p.add_argument("--project", help="Flutter 项目根目录")
@@ -62,6 +67,8 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "init":
             root = _project_root(args)
+            if args.repair_export:
+                return repair_export_options(root)
             return run_init(root, force=args.force)
 
         if args.command == "doctor":
