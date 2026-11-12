@@ -70,13 +70,14 @@ tbqrfly run --env prod --platform all
 3. 多平台时：当前终端优先跑 iOS，其余平台并行
 4. 各平台：产物复用询问 → 构建（追加 `GIT_COMMIT`）→ Zealot 上传 → 飞书二维码
 
-`builds.json` 的 `terminal`：
+`builds.json` 常用字段：
 
-| 值 | 行为 |
-|----|------|
-| `auto`（默认） | 在 Cursor/VS Code 等 IDE 内用 **inline**；否则新开系统 Terminal |
-| `inline` | 始终在当前终端并行（日志带 `[android]` / `[ios]` 前缀） |
-| `system` | 始终新开 macOS Terminal.app |
+| 字段 | 说明 |
+|------|------|
+| `terminal` | `auto` / `inline` / `system`（IDE 内默认 inline） |
+| `pre_commands` | 选完环境/平台后、打包前执行的命令数组，默认 `[]` |
+
+`init` 会在 `.vscode/tasks.json` 追加任务 `tbqrfly: run`（不存在则创建）。
 
 > Cursor/VS Code **没有**稳定的公开 API 去「新开一个集成终端面板」跑命令，因此 IDE 场景用 inline 并行，而不是系统终端。
 >

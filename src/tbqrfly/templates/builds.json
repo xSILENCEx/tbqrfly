@@ -3,6 +3,7 @@
   "default_env": "dev",
   "wait_timeout": 10,
   "terminal": "auto",
+  "pre_commands": [],
   "artifacts": {
     "android": [
       "build/app/outputs/flutter-apk/app-arm64-v8a-*-release.apk"
@@ -15,22 +16,22 @@
     "dev": {
       "android": {
         "zealot_channel_key": "",
-        "build_command": "flutter build apk --release --split-per-abi --flavor dev"
+        "build_command": "flutter build apk --release --split-per-abi"
       },
       "ios": {
         "zealot_channel_key": "",
-        "build_command": "flutter build ipa --release --flavor dev",
+        "build_command": "flutter build ipa --release",
         "export_options": ""
       }
     },
     "prod": {
       "android": {
         "zealot_channel_key": "",
-        "build_command": "flutter build apk --release --split-per-abi --flavor prod"
+        "build_command": "flutter build apk --release --split-per-abi"
       },
       "ios": {
         "zealot_channel_key": "",
-        "build_command": "flutter build ipa --release --flavor prod",
+        "build_command": "flutter build ipa --release",
         "export_options": ""
       }
     }

@@ -25,6 +25,7 @@ from .fork import (
 )
 from .llm import generate_summary, save_history
 from .notify import notify_failure, upload_and_notify
+from .pre_commands import run_pre_commands
 from .project_info import ProjectInfo, load_project_info
 
 
@@ -210,6 +211,7 @@ def run_workflow(
 
     print("\n===== 共享阶段 =====")
     cleanup_runtime_temps(project_root)
+    run_pre_commands(project_root, config.pre_commands)
     info = load_project_info(project_root, config.app_name)
     print(f"应用: {info.app_name}  版本: {info.version}+{info.build_number}")
     print(f"提交: {info.commit_short}  分支: {info.branch}")

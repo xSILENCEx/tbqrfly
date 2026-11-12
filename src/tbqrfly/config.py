@@ -81,6 +81,7 @@ class RuntimeConfig:
     # system: 始终新开 macOS Terminal
     # inline: 在当前终端并行跑其它平台（适合 Cursor/VS Code）
     terminal: str = "auto"
+    pre_commands: list[str] = field(default_factory=list)
     prompt_text: str = ""
     message_template: str = ""
     source_dir: Path = field(default_factory=Path)
@@ -183,6 +184,11 @@ def load_runtime_config(project_root: Path) -> RuntimeConfig:
     if terminal not in {"auto", "system", "inline"}:
         raise ConfigError("builds.json terminal 只能是 auto / system / inline")
 
+    pre_raw = builds_raw.get("pre_commands") or []
+    if not isinstance(pre_raw, list):
+        raise ConfigError("builds.json pre_commands 必须是字符串数组")
+    pre_commands = [str(item).strip() for item in pre_raw if str(item).strip()]
+
     return RuntimeConfig(
         project_root=project_root,
         app_name=str(builds_raw.get("app_name") or project_root.name),
@@ -197,6 +203,7 @@ def load_runtime_config(project_root: Path) -> RuntimeConfig:
         feishu=feishu,
         llm=llm,
         terminal=terminal,
+        pre_commands=pre_commands,
         prompt_text=prompt_text,
         message_template=message_template,
         source_dir=directory,

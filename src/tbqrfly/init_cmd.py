@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .config import CONFIG_DIR_NAME, ConfigError, config_dir
 from .doctor import collect_checks, has_fatal, print_checks
+from .vscode_tasks import ensure_vscode_tbqrfly_task
 
 
 def _template_text(name: str) -> str:
@@ -221,9 +222,14 @@ def run_init(project_root: Path, *, force: bool = False) -> int:
         (directory / name).write_text(content, encoding="utf-8")
     _write_builds(project_root, directory / "builds.json", app_name, export_rel)
     _ensure_gitignore(project_root)
+    try:
+        vscode_msg = ensure_vscode_tbqrfly_task(project_root)
+    except ValueError as exc:
+        vscode_msg = f"写入 .vscode/tasks.json 失败: {exc}"
 
     print(f"\n已初始化: {directory}")
     print(f"app_name: {app_name}")
+    print(vscode_msg)
     if export_rel:
         print(f"export_options: {export_rel}")
         if team_id:
@@ -242,7 +248,7 @@ def run_init(project_root: Path, *, force: bool = False) -> int:
 
     print("\n===== 请填写以下配置 =====")
     print(f"- {directory / 'zealot.json'}  → base_url / token")
-    print(f"- {directory / 'builds.json'}  → 各环境 zealot_channel_key（及按需调整 build_command）")
+    print(f"- {directory / 'builds.json'}  → zealot_channel_key / pre_commands（及按需调整 build_command）")
     print(f"- {directory / 'feishu.json'}  → webhook_url / app_id / app_secret（可选）")
     print(f"- {directory / 'llm.json'}     → enabled / command / prompt（可选）")
     return 0 if not has_fatal(checks) else 2
