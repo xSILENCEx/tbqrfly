@@ -108,3 +108,6 @@ class FeishuClient:
         token = self._token()
         image_key = self._upload_image(token, image_path)
         self._send(title, text, image_key)
+
+    def send_text(self, *, title: str, text: str) -> None:
+        self._send(title, text)

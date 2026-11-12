@@ -81,3 +81,43 @@ def upload_and_notify(
         image_path = Path(tmp) / f"{platform}_qrcode.png"
         feishu.send_qrcode(qrcode_url, image_path, title=title, text=text)
     print(f"  已发送飞书通知: {platform}")
+
+
+def notify_failure(
+    config: RuntimeConfig,
+    *,
+    env: str,
+    platform: str,
+    info: ProjectInfo | None,
+    error: str,
+    step: str = "",
+) -> None:
+    """Send a text-only Feishu alert for platform pipeline failures."""
+    if not config.feishu_ready:
+        print("飞书未配置完整，跳过失败通知")
+        return
+
+    display_platform = _display_platform(platform)
+    app_name = info.app_name if info else config.app_name
+    version = info.version if info else "-"
+    commit = info.commit_short if info else "-"
+    step_line = f"失败步骤: {step}\n" if step else ""
+    message = (
+        f"{app_name} {display_platform} 发布失败\n\n"
+        f"版本: {version}\n"
+        f"提交: {commit}\n"
+        f"环境: {env}\n"
+        f"平台: {display_platform}\n"
+        f"{step_line}"
+        f"\n错误信息:\n{error[:3000]}"
+    )
+    title = f"{app_name} {display_platform} 发布失败"
+    try:
+        FeishuClient(
+            config.feishu["app_id"],
+            config.feishu["app_secret"],
+            config.feishu["webhook_url"],
+        ).send_text(title=title, text=message)
+        print(f"  已发送飞书失败通知: {platform}")
+    except Exception as exc:  # noqa: BLE001 - never mask the original failure
+        print(f"警告: 飞书失败通知发送失败: {exc}")

@@ -15,8 +15,22 @@ from .artifacts import find_after_build, find_reusable
 from .build import run_build
 from .fork import load_shared_state, spawn_platform_terminal, write_shared_state
 from .llm import generate_summary, save_history
-from .notify import upload_and_notify
+from .notify import notify_failure, upload_and_notify
 from .project_info import ProjectInfo, load_project_info
+
+
+def _classify_step(error: BaseException) -> str:
+    text = str(error)
+    lowered = text.lower()
+    if "构建失败" in text or "ipa 导出" in lowered:
+        return "build"
+    if "产物" in text:
+        return "artifact"
+    if "zealot" in lowered or "channel" in lowered or "上传" in text:
+        return "zealot_upload"
+    if "飞书" in text or "feishu" in lowered:
+        return "feishu_notify"
+    return "pipeline"
 
 
 def _prompt_choice(
@@ -115,19 +129,19 @@ def run_platform_pipeline(
     summary: str,
 ) -> None:
     print(f"\n===== 平台 {platform} =====")
-    existing = find_reusable(config, platform)
-    reuse = bool(existing) and _ask_reuse(platform, config.wait_timeout)
-    if reuse and existing is not None:
-        artifact = existing
-        print(f"  复用产物: {artifact}")
-    else:
-        run_build(config, env, platform, info)
-        artifact = find_after_build(config, platform)
-        if artifact is None:
-            raise RuntimeError(f"构建完成但未找到 {platform} 产物")
-        print(f"  产物: {artifact} ({artifact.stat().st_size / 1024 / 1024:.2f} MB)")
-
     try:
+        existing = find_reusable(config, platform)
+        reuse = bool(existing) and _ask_reuse(platform, config.wait_timeout)
+        if reuse and existing is not None:
+            artifact = existing
+            print(f"  复用产物: {artifact}")
+        else:
+            run_build(config, env, platform, info)
+            artifact = find_after_build(config, platform)
+            if artifact is None:
+                raise RuntimeError(f"构建完成但未找到 {platform} 产物")
+            print(f"  产物: {artifact} ({artifact.stat().st_size / 1024 / 1024:.2f} MB)")
+
         upload_and_notify(
             config,
             env=env,
@@ -136,8 +150,15 @@ def run_platform_pipeline(
             info=info,
             summary=summary,
         )
-    except Exception:
-        # Feishu/Zealot failure should fail the run per plan.
+    except Exception as exc:
+        notify_failure(
+            config,
+            env=env,
+            platform=platform,
+            info=info,
+            error=str(exc),
+            step=_classify_step(exc),
+        )
         raise
 
 

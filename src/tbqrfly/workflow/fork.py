@@ -46,35 +46,52 @@ def spawn_platform_terminal(
     platform: str,
     shared_state: Path,
 ) -> bool:
-    """Open a new macOS Terminal window to run a single-platform pipeline."""
+    """Open a new macOS Terminal window to run a single-platform pipeline.
+
+    Uses a ``.command`` file + ``open`` instead of AppleScript, avoiding
+    quoting bugs and Automation permission prompts.
+    """
     if platform_system() != "Darwin":
         return False
 
-    command = (
-        f"cd {shlex.quote(str(project_root))} && "
-        f"{shlex.quote(_tbqrfly_bin())} run "
-        f"--env {shlex.quote(env)} "
-        f"--platform {shlex.quote(platform)} "
-        f"--shared-state {shlex.quote(str(shared_state))} ; "
-        f"echo; echo '[tbqrfly] {platform} 分叉结束，退出码 '$?; "
-        f"exec bash"
+    directory = config_dir(project_root)
+    directory.mkdir(parents=True, exist_ok=True)
+    runner = directory / f"run_{platform}_{int(time.time() * 1000)}.command"
+    script_body = "\n".join(
+        [
+            "#!/bin/bash",
+            "set +e",
+            f"cd {shlex.quote(str(project_root))}",
+            (
+                f"{shlex.quote(_tbqrfly_bin())} run "
+                f"--env {shlex.quote(env)} "
+                f"--platform {shlex.quote(platform)} "
+                f"--shared-state {shlex.quote(str(shared_state))}"
+            ),
+            "code=$?",
+            "echo",
+            f'echo "[tbqrfly] {platform} 分叉结束，退出码 $code"',
+            'echo "按回车关闭窗口..."',
+            "read -r _",
+            "exit \"$code\"",
+            "",
+        ]
     )
-    script = f'''
-tell application "Terminal"
-    activate
-    do script {json.dumps(command)}
-end tell
-'''
+    runner.write_text(script_body, encoding="utf-8")
+    runner.chmod(0o755)
+
     completed = subprocess.run(
-        ["osascript", "-e", script],
+        ["open", "-a", "Terminal", str(runner)],
         capture_output=True,
         text=True,
         check=False,
     )
     if completed.returncode != 0:
-        print(f"警告: 无法新开终端（{completed.stderr.strip() or completed.stdout.strip()}）")
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        print(f"警告: 无法新开终端（{detail or f'exit {completed.returncode}'}）")
         return False
     print(f"已新开终端构建平台: {platform}")
+    print(f"  脚本: {runner}")
     return True
 
 
