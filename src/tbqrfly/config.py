@@ -145,6 +145,7 @@ def load_runtime_config(project_root: Path) -> RuntimeConfig:
                 raw.get("app_secret") or raw.get("feishu_app_secret") or ""
             ),
             "message_template": str(raw.get("message_template") or "message.md"),
+            "qrcode_edge_px": str(raw.get("qrcode_edge_px") or "768"),
         }
 
     llm_path = directory / "llm.json"

@@ -3,12 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 
 import requests
-from PIL import Image
+from PIL import Image, ImageOps
 
 
-def normalize_qrcode(path: Path, edge_px: int) -> None:
+DEFAULT_QRCODE_EDGE_PX = 768
+
+
+def normalize_qrcode(path: Path, edge_px: int = DEFAULT_QRCODE_EDGE_PX) -> None:
+    """Upscale, binarize to pure black/white, and add quiet-zone padding."""
+    if edge_px <= 0:
+        edge_px = DEFAULT_QRCODE_EDGE_PX
     if edge_px < 96 or edge_px > 4096:
         raise ValueError(f"二维码边长必须在 96 到 4096 之间，当前为 {edge_px}")
+
     with Image.open(path) as source:
         source.load()
         if source.mode == "RGBA":
@@ -16,8 +23,22 @@ def normalize_qrcode(path: Path, edge_px: int) -> None:
             image.paste(source, mask=source.getchannel("A"))
         else:
             image = source.convert("RGB")
+
+        # Zealot thumbnails are often small gray-on-white; force high contrast.
+        gray = ImageOps.grayscale(image)
+        binary = gray.point(lambda value: 0 if value < 180 else 255, mode="1").convert(
+            "RGB"
+        )
+
+        # Keep modules crisp when enlarging.
         resample = getattr(Image, "Resampling", Image).NEAREST
-        image.resize((edge_px, edge_px), resample).save(path, "PNG", optimize=True)
+        # Leave ~8% quiet zone around the code for scanners / Feishu preview.
+        content_edge = max(64, int(edge_px * 0.84))
+        scaled = binary.resize((content_edge, content_edge), resample)
+        canvas = Image.new("RGB", (edge_px, edge_px), (255, 255, 255))
+        offset = (edge_px - content_edge) // 2
+        canvas.paste(scaled, (offset, offset))
+        canvas.save(path, "PNG", optimize=True)
 
 
 class FeishuClient:
@@ -100,11 +121,10 @@ class FeishuClient:
         *,
         title: str,
         text: str,
-        edge_px: int = 0,
+        edge_px: int = DEFAULT_QRCODE_EDGE_PX,
     ) -> None:
         self.download(qrcode_url, image_path)
-        if edge_px:
-            normalize_qrcode(image_path, edge_px)
+        normalize_qrcode(image_path, edge_px)
         token = self._token()
         image_key = self._upload_image(token, image_path)
         self._send(title, text, image_key)

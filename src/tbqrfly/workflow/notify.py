@@ -72,6 +72,10 @@ def upload_and_notify(
     }
     text = render_placeholders(config.message_template or "{summary}", values)
     title = f"{info.app_name} {display_platform} 发布"
+    try:
+        edge_px = int(str(config.feishu.get("qrcode_edge_px") or "768"))
+    except ValueError:
+        edge_px = 768
     feishu = FeishuClient(
         config.feishu["app_id"],
         config.feishu["app_secret"],
@@ -79,7 +83,13 @@ def upload_and_notify(
     )
     with tempfile.TemporaryDirectory(prefix="tbqrfly-") as tmp:
         image_path = Path(tmp) / f"{platform}_qrcode.png"
-        feishu.send_qrcode(qrcode_url, image_path, title=title, text=text)
+        feishu.send_qrcode(
+            qrcode_url,
+            image_path,
+            title=title,
+            text=text,
+            edge_px=edge_px,
+        )
     print(f"  已发送飞书通知: {platform}")
 
 

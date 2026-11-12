@@ -249,6 +249,8 @@ def run_init(project_root: Path, *, force: bool = False) -> int:
     print("\n===== 请填写以下配置 =====")
     print(f"- {directory / 'zealot.json'}  → base_url / token")
     print(f"- {directory / 'builds.json'}  → zealot_channel_key / pre_commands（及按需调整 build_command）")
-    print(f"- {directory / 'feishu.json'}  → webhook_url / app_id / app_secret（可选）")
+    print(
+        f"- {directory / 'feishu.json'}  → webhook_url / app_id / app_secret / qrcode_edge_px（可选）"
+    )
     print(f"- {directory / 'llm.json'}     → enabled / command / prompt（可选）")
     return 0 if not has_fatal(checks) else 2

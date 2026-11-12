@@ -164,9 +164,12 @@ POST {ZEALOT_BASE_URL}/api/apps/upload
   "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx",
   "app_id": "cli_xxxxxxxx",
   "app_secret": "xxxxxxxx",
-  "message_template": "message.md"
+  "message_template": "message.md",
+  "qrcode_edge_px": 768
 }
 ```
+
+`qrcode_edge_px` 控制发到飞书前的二维码边长（默认 768）。工具会把 Zealot 缩略图放大、二值化成纯黑白，并加白边，避免发出来又小又灰。想更大可改成 `1024`。
 
 消息正文在 `message.md`，支持占位符：
 
