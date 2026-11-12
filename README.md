@@ -67,10 +67,20 @@ tbqrfly run --env prod --platform all
 
 1. 选择环境 / 平台（可超时默认）
 2. 共享阶段：读取项目信息 + LLM 摘要（失败则回退 git log）
-3. 多平台时：当前终端优先跑 iOS，其余平台尝试新开 Terminal 并行
+3. 多平台时：当前终端优先跑 iOS，其余平台并行
 4. 各平台：产物复用询问 → 构建（追加 `GIT_COMMIT`）→ Zealot 上传 → 飞书二维码
 
-> 同仓库并行 `flutter build` 为尽力而为，可能偶发争用；非 macOS 自动改为串行。
+`builds.json` 的 `terminal`：
+
+| 值 | 行为 |
+|----|------|
+| `auto`（默认） | 在 Cursor/VS Code 等 IDE 内用 **inline**；否则新开系统 Terminal |
+| `inline` | 始终在当前终端并行（日志带 `[android]` / `[ios]` 前缀） |
+| `system` | 始终新开 macOS Terminal.app |
+
+> Cursor/VS Code **没有**稳定的公开 API 去「新开一个集成终端面板」跑命令，因此 IDE 场景用 inline 并行，而不是系统终端。
+>
+> 同仓库并行 `flutter build` 为尽力而为，可能偶发争用。
 
 ## 命令
 

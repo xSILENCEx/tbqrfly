@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shlex
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -39,6 +41,30 @@ def _tbqrfly_bin() -> str:
     return sys.argv[0] if sys.argv else "tbqrfly"
 
 
+def running_in_ide() -> bool:
+    """Detect Cursor / VS Code / JetBrains integrated terminal."""
+    term_program = os.environ.get("TERM_PROGRAM", "").lower()
+    if term_program == "vscode":
+        return True
+    if os.environ.get("VSCODE_PID") or os.environ.get("CURSOR_TRACE_ID"):
+        return True
+    if os.environ.get("TERM_PROGRAM_VERSION") and "vscode" in term_program:
+        return True
+    emulator = os.environ.get("TERMINAL_EMULATOR", "")
+    if emulator.startswith("JetBrains"):
+        return True
+    return False
+
+
+def resolve_terminal_mode(configured: str) -> str:
+    mode = (configured or "auto").strip().lower()
+    if mode == "auto":
+        return "inline" if running_in_ide() else "system"
+    if mode in {"system", "inline"}:
+        return mode
+    return "system"
+
+
 def spawn_platform_terminal(
     project_root: Path,
     *,
@@ -46,11 +72,7 @@ def spawn_platform_terminal(
     platform: str,
     shared_state: Path,
 ) -> bool:
-    """Open a new macOS Terminal window to run a single-platform pipeline.
-
-    Uses a ``.command`` file + ``open`` instead of AppleScript, avoiding
-    quoting bugs and Automation permission prompts.
-    """
+    """Open a new macOS Terminal.app window via a .command file."""
     if platform_system() != "Darwin":
         return False
 
@@ -73,7 +95,7 @@ def spawn_platform_terminal(
             f'echo "[tbqrfly] {platform} 分叉结束，退出码 $code"',
             'echo "按回车关闭窗口..."',
             "read -r _",
-            "exit \"$code\"",
+            'exit "$code"',
             "",
         ]
     )
@@ -88,11 +110,65 @@ def spawn_platform_terminal(
     )
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip()
-        print(f"警告: 无法新开终端（{detail or f'exit {completed.returncode}'}）")
+        print(f"警告: 无法新开系统终端（{detail or f'exit {completed.returncode}'}）")
         return False
-    print(f"已新开终端构建平台: {platform}")
+    print(f"已新开系统终端构建平台: {platform}")
     print(f"  脚本: {runner}")
     return True
+
+
+def spawn_platform_inline(
+    project_root: Path,
+    *,
+    env: str,
+    platform: str,
+    shared_state: Path,
+) -> subprocess.Popen[str]:
+    """Start a platform pipeline as a child process; stream logs with a prefix.
+
+    Cursor/VS Code have no stable public API to open a *new* integrated terminal
+    panel from an external CLI, so we keep parallel work inside the current IDE
+    terminal instead of launching Terminal.app.
+    """
+    command = [
+        _tbqrfly_bin(),
+        "run",
+        "--env",
+        env,
+        "--platform",
+        platform,
+        "--shared-state",
+        str(shared_state),
+    ]
+    print(f"已在当前 IDE 终端并行启动平台: {platform}")
+    process = subprocess.Popen(
+        command,
+        cwd=project_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    def _pump() -> None:
+        assert process.stdout is not None
+        for line in process.stdout:
+            print(f"[{platform}] {line}", end="" if line.endswith("\n") else "\n")
+
+    thread = threading.Thread(target=_pump, name=f"tbqrfly-{platform}", daemon=True)
+    thread.start()
+    # Attach thread for join by caller via process attribute.
+    process._tbqrfly_pump = thread  # type: ignore[attr-defined]
+    return process
+
+
+def wait_inline_process(platform: str, process: subprocess.Popen[str]) -> int:
+    pump = getattr(process, "_tbqrfly_pump", None)
+    if pump is not None:
+        pump.join()
+    code = process.wait()
+    print(f"[tbqrfly] {platform} 并行任务结束，退出码 {code}")
+    return code
 
 
 def platform_system() -> str:

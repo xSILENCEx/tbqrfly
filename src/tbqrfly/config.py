@@ -77,6 +77,10 @@ class RuntimeConfig:
     zealot: dict[str, str]
     feishu: dict[str, str]
     llm: dict[str, Any]
+    # auto: IDE 内用 inline，否则 system Terminal
+    # system: 始终新开 macOS Terminal
+    # inline: 在当前终端并行跑其它平台（适合 Cursor/VS Code）
+    terminal: str = "auto"
     prompt_text: str = ""
     message_template: str = ""
     source_dir: Path = field(default_factory=Path)
@@ -175,6 +179,10 @@ def load_runtime_config(project_root: Path) -> RuntimeConfig:
             "message.md",
         )
 
+    terminal = str(builds_raw.get("terminal") or "auto").strip().lower()
+    if terminal not in {"auto", "system", "inline"}:
+        raise ConfigError("builds.json terminal 只能是 auto / system / inline")
+
     return RuntimeConfig(
         project_root=project_root,
         app_name=str(builds_raw.get("app_name") or project_root.name),
@@ -188,6 +196,7 @@ def load_runtime_config(project_root: Path) -> RuntimeConfig:
         },
         feishu=feishu,
         llm=llm,
+        terminal=terminal,
         prompt_text=prompt_text,
         message_template=message_template,
         source_dir=directory,

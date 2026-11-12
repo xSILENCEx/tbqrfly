@@ -2,6 +2,7 @@
   "app_name": "App",
   "default_env": "dev",
   "wait_timeout": 10,
+  "terminal": "auto",
   "artifacts": {
     "android": [
       "build/app/outputs/flutter-apk/app-arm64-v8a-*-release.apk"

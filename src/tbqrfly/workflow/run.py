@@ -13,7 +13,14 @@ from ..config import (
 from ..doctor import collect_checks, has_fatal, print_checks
 from .artifacts import find_after_build, find_reusable
 from .build import run_build
-from .fork import load_shared_state, spawn_platform_terminal, write_shared_state
+from .fork import (
+    load_shared_state,
+    resolve_terminal_mode,
+    spawn_platform_inline,
+    spawn_platform_terminal,
+    wait_inline_process,
+    write_shared_state,
+)
 from .llm import generate_summary, save_history
 from .notify import notify_failure, upload_and_notify
 from .project_info import ProjectInfo, load_project_info
@@ -228,7 +235,23 @@ def run_workflow(
     else:
         primary, *others = platforms
 
+    terminal_mode = resolve_terminal_mode(config.terminal)
+    print(f"并行终端模式: {terminal_mode}（builds.terminal={config.terminal}）")
+
+    inline_jobs: list[tuple[str, object]] = []
+    exit_code = 0
+
     for other in others:
+        if terminal_mode == "inline":
+            process = spawn_platform_inline(
+                project_root,
+                env=env_name,
+                platform=other,
+                shared_state=shared,
+            )
+            inline_jobs.append((other, process))
+            continue
+
         spawned = spawn_platform_terminal(
             project_root,
             env=env_name,
@@ -237,21 +260,35 @@ def run_workflow(
         )
         if not spawned:
             print(f"改为当前终端串行执行: {other}")
-            run_platform_pipeline(
-                config, env=env_name, platform=other, info=info, summary=summary
-            )
+            try:
+                run_platform_pipeline(
+                    config, env=env_name, platform=other, info=info, summary=summary
+                )
+            except Exception as exc:
+                print(f"平台 {other} 失败: {exc}")
+                exit_code = 1
 
-    run_platform_pipeline(
-        config, env=env_name, platform=primary, info=info, summary=summary
-    )
-
-    # Only record history from the primary/shared process.
     try:
-        save_history(config.history_path, info.commit, summary)
-    except OSError as exc:
-        print(f"警告: 写入 commit_history 失败: {exc}")
+        run_platform_pipeline(
+            config, env=env_name, platform=primary, info=info, summary=summary
+        )
+    except Exception as exc:
+        print(f"平台 {primary} 失败: {exc}")
+        exit_code = 1
+
+    for other, process in inline_jobs:
+        code = wait_inline_process(other, process)  # type: ignore[arg-type]
+        if code != 0:
+            exit_code = 1
+
+    # Only record history from the primary/shared process when primary succeeded.
+    if exit_code == 0:
+        try:
+            save_history(config.history_path, info.commit, summary)
+        except OSError as exc:
+            print(f"警告: 写入 commit_history 失败: {exc}")
 
     print("\n===== 当前终端流程结束 =====")
-    if others:
-        print("其他平台可能仍在独立终端中运行，请查看对应窗口。")
-    return 0
+    if others and terminal_mode == "system":
+        print("其他平台可能仍在独立系统终端中运行，请查看对应窗口。")
+    return exit_code
