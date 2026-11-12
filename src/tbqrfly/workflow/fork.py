@@ -37,6 +37,40 @@ def load_shared_state(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def cleanup_runtime_temps(
+    project_root: Path,
+    *,
+    keep: Path | None = None,
+    max_age_seconds: int = 2 * 60 * 60,
+) -> None:
+    """Remove stale .shared_*.json and run_*.command leftovers under .tbqrfly/."""
+    directory = config_dir(project_root)
+    if not directory.is_dir():
+        return
+    now = time.time()
+    keep_resolved = keep.resolve() if keep is not None else None
+    patterns = (".shared_*.json", "run_*.command")
+    for pattern in patterns:
+        for path in directory.glob(pattern):
+            try:
+                if keep_resolved is not None and path.resolve() == keep_resolved:
+                    continue
+                age = now - path.stat().st_mtime
+                if age >= max_age_seconds:
+                    path.unlink(missing_ok=True)
+            except OSError:
+                continue
+
+
+def remove_path_quiet(path: Path | None) -> None:
+    if path is None:
+        return
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def _tbqrfly_bin() -> str:
     return sys.argv[0] if sys.argv else "tbqrfly"
 

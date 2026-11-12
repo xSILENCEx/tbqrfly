@@ -14,7 +14,9 @@ from ..doctor import collect_checks, has_fatal, print_checks
 from .artifacts import find_after_build, find_reusable
 from .build import run_build
 from .fork import (
+    cleanup_runtime_temps,
     load_shared_state,
+    remove_path_quiet,
     resolve_terminal_mode,
     spawn_platform_inline,
     spawn_platform_terminal,
@@ -207,26 +209,12 @@ def run_workflow(
     validate_for_run(config, env_name, platforms)
 
     print("\n===== 共享阶段 =====")
+    cleanup_runtime_temps(project_root)
     info = load_project_info(project_root, config.app_name)
     print(f"应用: {info.app_name}  版本: {info.version}+{info.build_number}")
     print(f"提交: {info.commit_short}  分支: {info.branch}")
     summary = generate_summary(config, info)
     print(f"摘要预览:\n{summary[:500]}{'...' if len(summary) > 500 else ''}")
-
-    shared = write_shared_state(
-        project_root,
-        env=env_name,
-        summary=summary,
-        info={
-            "app_name": info.app_name,
-            "version": info.version,
-            "build_number": info.build_number,
-            "commit": info.commit,
-            "commit_short": info.commit_short,
-            "branch": info.branch,
-            "build_date": info.build_date,
-        },
-    )
 
     # Prefer keeping iOS on the current terminal when present; fork the rest.
     if "ios" in platforms:
@@ -238,57 +226,84 @@ def run_workflow(
     terminal_mode = resolve_terminal_mode(config.terminal)
     print(f"并行终端模式: {terminal_mode}（builds.terminal={config.terminal}）")
 
+    # Shared state is only needed when forking other platforms.
+    shared = None
+    if others:
+        shared = write_shared_state(
+            project_root,
+            env=env_name,
+            summary=summary,
+            info={
+                "app_name": info.app_name,
+                "version": info.version,
+                "build_number": info.build_number,
+                "commit": info.commit,
+                "commit_short": info.commit_short,
+                "branch": info.branch,
+                "build_date": info.build_date,
+            },
+        )
+
     inline_jobs: list[tuple[str, object]] = []
     exit_code = 0
+    spawned_system = False
 
-    for other in others:
-        if terminal_mode == "inline":
-            process = spawn_platform_inline(
+    try:
+        for other in others:
+            if terminal_mode == "inline":
+                process = spawn_platform_inline(
+                    project_root,
+                    env=env_name,
+                    platform=other,
+                    shared_state=shared,  # type: ignore[arg-type]
+                )
+                inline_jobs.append((other, process))
+                continue
+
+            spawned = spawn_platform_terminal(
                 project_root,
                 env=env_name,
                 platform=other,
-                shared_state=shared,
+                shared_state=shared,  # type: ignore[arg-type]
             )
-            inline_jobs.append((other, process))
-            continue
+            if spawned:
+                spawned_system = True
+            else:
+                print(f"改为当前终端串行执行: {other}")
+                try:
+                    run_platform_pipeline(
+                        config, env=env_name, platform=other, info=info, summary=summary
+                    )
+                except Exception as exc:
+                    print(f"平台 {other} 失败: {exc}")
+                    exit_code = 1
 
-        spawned = spawn_platform_terminal(
-            project_root,
-            env=env_name,
-            platform=other,
-            shared_state=shared,
-        )
-        if not spawned:
-            print(f"改为当前终端串行执行: {other}")
-            try:
-                run_platform_pipeline(
-                    config, env=env_name, platform=other, info=info, summary=summary
-                )
-            except Exception as exc:
-                print(f"平台 {other} 失败: {exc}")
-                exit_code = 1
-
-    try:
-        run_platform_pipeline(
-            config, env=env_name, platform=primary, info=info, summary=summary
-        )
-    except Exception as exc:
-        print(f"平台 {primary} 失败: {exc}")
-        exit_code = 1
-
-    for other, process in inline_jobs:
-        code = wait_inline_process(other, process)  # type: ignore[arg-type]
-        if code != 0:
+        try:
+            run_platform_pipeline(
+                config, env=env_name, platform=primary, info=info, summary=summary
+            )
+        except Exception as exc:
+            print(f"平台 {primary} 失败: {exc}")
             exit_code = 1
 
-    # Only record history from the primary/shared process when primary succeeded.
-    if exit_code == 0:
-        try:
-            save_history(config.history_path, info.commit, summary)
-        except OSError as exc:
-            print(f"警告: 写入 commit_history 失败: {exc}")
+        for other, process in inline_jobs:
+            code = wait_inline_process(other, process)  # type: ignore[arg-type]
+            if code != 0:
+                exit_code = 1
 
-    print("\n===== 当前终端流程结束 =====")
-    if others and terminal_mode == "system":
-        print("其他平台可能仍在独立系统终端中运行，请查看对应窗口。")
-    return exit_code
+        # Only record history from the primary/shared process when primary succeeded.
+        if exit_code == 0:
+            try:
+                save_history(config.history_path, info.commit, summary)
+            except OSError as exc:
+                print(f"警告: 写入 commit_history 失败: {exc}")
+
+        print("\n===== 当前终端流程结束 =====")
+        if others and spawned_system:
+            print("其他平台可能仍在独立系统终端中运行，请查看对应窗口。")
+        return exit_code
+    finally:
+        # Inline/serial forks are done here; system Terminal children may still need
+        # the file, so leave it for stale cleanup on the next run.
+        if shared is not None and not spawned_system:
+            remove_path_quiet(shared)

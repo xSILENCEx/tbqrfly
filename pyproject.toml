@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tbqrfly"
-version = "0.1.3"
+version = "0.1.4"
 description = "Flutter build, Zealot upload, and Feishu QR release tool"
 requires-python = ">=3.9"
 dependencies = [
