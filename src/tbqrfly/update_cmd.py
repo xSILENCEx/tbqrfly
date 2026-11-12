@@ -35,13 +35,32 @@ def install_or_update(*, ref: str | None = None, repo: str | None = None) -> int
     print(f"安装/更新: {target}")
     try:
         subprocess.check_call([str(pip), "install", "--upgrade", "pip"])
-        subprocess.check_call([str(pip), "install", "--upgrade", target])
+        # Same package version can hide git updates; always force reinstall from ref.
+        subprocess.check_call(
+            [
+                str(pip),
+                "install",
+                "--upgrade",
+                "--force-reinstall",
+                "--no-cache-dir",
+                target,
+            ]
+        )
     except subprocess.CalledProcessError:
         # Fallback: install from local checkout when developing.
         local = Path(__file__).resolve().parents[2]
         if (local / "pyproject.toml").is_file():
             print(f"GitHub 安装失败，回退本地安装: {local}")
-            subprocess.check_call([str(pip), "install", "--upgrade", str(local)])
+            subprocess.check_call(
+                [
+                    str(pip),
+                    "install",
+                    "--upgrade",
+                    "--force-reinstall",
+                    "--no-cache-dir",
+                    str(local),
+                ]
+            )
         else:
             raise
 
@@ -56,7 +75,10 @@ def install_or_update(*, ref: str | None = None, repo: str | None = None) -> int
     if str(bin_dir) not in os.environ.get("PATH", ""):
         print(f"请将 {bin_dir} 加入 PATH，例如:")
         print(f'  export PATH="{bin_dir}:$PATH"')
-    print("完成。运行: tbqrfly --help")
+    from . import __version__
+
+    print(f"完成。当前版本: {__version__}")
+    print("运行: tbqrfly --help")
     return 0
 
 

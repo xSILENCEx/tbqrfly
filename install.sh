@@ -40,11 +40,11 @@ fi
 
 echo "==> 安装 tbqrfly"
 "${VENV}/bin/pip" install --upgrade pip >/dev/null
-if ! "${VENV}/bin/pip" install --upgrade "git+https://github.com/${REPO}.git@${REF}"; then
+if ! "${VENV}/bin/pip" install --upgrade --force-reinstall --no-cache-dir "git+https://github.com/${REPO}.git@${REF}"; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if [[ -f "${SCRIPT_DIR}/pyproject.toml" ]]; then
     echo "==> GitHub 安装失败，回退本地目录: ${SCRIPT_DIR}"
-    "${VENV}/bin/pip" install --upgrade "${SCRIPT_DIR}"
+    "${VENV}/bin/pip" install --upgrade --force-reinstall --no-cache-dir "${SCRIPT_DIR}"
   else
     echo "错误: 安装失败" >&2
     exit 1
