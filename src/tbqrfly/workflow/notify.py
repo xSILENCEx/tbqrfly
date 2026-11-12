@@ -69,8 +69,12 @@ def upload_and_notify(
         "env": env,
         "app_name": info.app_name,
         "summary": summary,
+        "install_url": install_url,
     }
     text = render_placeholders(config.message_template or "{summary}", values)
+    # Ensure Zealot download link is always present at the end.
+    if install_url and install_url not in text:
+        text = f"{text.rstrip()}\n\n下载链接: {install_url}"
     title = f"{info.app_name} {display_platform} 发布"
     try:
         edge_px = int(str(config.feishu.get("qrcode_edge_px") or "768"))

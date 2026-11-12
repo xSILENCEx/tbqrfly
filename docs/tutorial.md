@@ -182,6 +182,9 @@ POST {ZEALOT_BASE_URL}/api/apps/upload
 | `{commit}` | 短 commit |
 | `{env}` | 环境名，如 `dev` |
 | `{summary}` | 变更摘要 |
+| `{install_url}` | Zealot 安装/下载链接 |
+
+消息末尾会附上 Zealot 下载链接；若模板里已写 `{install_url}` 则不会重复追加。
 
 失败时会另发文本消息（含失败平台与错误原因），不依赖二维码图片。
 
