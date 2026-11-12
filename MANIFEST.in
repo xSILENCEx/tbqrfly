@@ -1,0 +1,3 @@
+recursive-include src/tbqrfly/templates *
+include install.sh
+include README.md

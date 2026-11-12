@@ -1,0 +1,6 @@
+{
+  "webhook_url": "",
+  "app_id": "",
+  "app_secret": "",
+  "message_template": "message.md"
+}

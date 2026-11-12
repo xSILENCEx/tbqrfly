@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "command": "claude -p",
+  "prompt": "prompt.md"
+}

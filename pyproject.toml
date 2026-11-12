@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tbqrfly"
+version = "0.1.0"
+description = "Flutter build, Zealot upload, and Feishu QR release tool"
+requires-python = ">=3.9"
+dependencies = [
+  "Pillow>=8.0.0",
+  "requests>=2.25.1",
+]
+
+[project.scripts]
+tbqrfly = "tbqrfly.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tbqrfly = ["templates/*"]
