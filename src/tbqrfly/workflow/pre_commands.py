@@ -6,12 +6,16 @@ from pathlib import Path
 
 
 def run_pre_commands(project_root: Path, commands: list[str]) -> None:
-    """Run user-defined pre-commands after option selection, before packaging."""
+    run_commands(project_root, commands, label="前置命令")
+
+
+def run_commands(project_root: Path, commands: list[str], *, label: str) -> None:
+    """Run commands in order without a shell; stop at the first failure."""
     if not commands:
-        print("前置命令为空，跳过")
+        print(f"{label}为空，跳过")
         return
 
-    print("\n===== 前置命令 =====")
+    print(f"\n===== {label} =====")
     for raw in commands:
         command = shlex.split(raw)
         if not command:
@@ -20,6 +24,6 @@ def run_pre_commands(project_root: Path, commands: list[str]) -> None:
         completed = subprocess.run(command, cwd=project_root, check=False)
         if completed.returncode != 0:
             raise RuntimeError(
-                f"前置命令失败（退出码 {completed.returncode}）: {raw}"
+                f"{label}失败（退出码 {completed.returncode}）: {raw}"
             )
-    print("前置命令全部完成")
+    print(f"{label}全部完成")

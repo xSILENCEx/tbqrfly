@@ -14,6 +14,7 @@ from tbqrfly.workflow.run import run_platform_pipeline
 class NotificationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.config = SimpleNamespace(
+            project_root=Path(__file__).parent,
             platform_config=lambda env, platform: {"zealot_channel_key": "channel"},
             zealot={"base_url": "https://example.invalid", "token": "token"},
             feishu_ready=True,

@@ -272,6 +272,7 @@ tbqrfly init --repair-export
     "git pull",
     "flutter pub get"
   ],
+  "next_commands": ["python3 tool/release_finished.py"],
   "artifacts": {
     "android": ["build/app/outputs/flutter-apk/app-arm64-v8a-*-release.apk"],
     "ios": ["build/ios/ipa/*.ipa"]
@@ -280,7 +281,9 @@ tbqrfly init --repair-export
     "dev": {
       "android": {
         "zealot_channel_key": "...",
-        "build_command": "flutter build apk --release --split-per-abi"
+        "build_command": "flutter build apk --release --split-per-abi",
+        "pre_commands": ["python3 tool/prepare_android.py"],
+        "next_commands": ["python3 tool/archive_android.py"]
       },
       "ios": {
         "zealot_channel_key": "...",
@@ -294,9 +297,26 @@ tbqrfly init --repair-export
 
 | 字段 | 说明 |
 |------|------|
-| `pre_commands` | 选完环境/平台后、打包前执行；`[]` 则跳过 |
+| 顶层 `pre_commands` | 选完环境/平台后执行一次；`[]` 则跳过 |
+| 顶层 `next_commands` | 所有选中平台成功后执行一次；`[]` 则跳过 |
+| `builds.<env>.<platform>.pre_commands` | 对应平台开始时执行，复用已有产物时也执行 |
+| `builds.<env>.<platform>.next_commands` | 对应平台上传与通知步骤结束后执行；平台失败则跳过 |
 | `terminal` | `auto`：IDE 内 inline 并行；`system`：系统 Terminal；`inline`：当前终端并行 |
 | `build_command` | 完整构建命令；需要 flavor 时自行追加 `--flavor xxx` |
+
+### 4.4 前后置命令的顺序与失败行为
+
+所有命令列表均可省略，默认 `[]`。全局与平台配置叠加执行，平台列表不覆盖全局列表：
+
+1. 全局 `pre_commands` 执行一次，然后读取版本与提交信息、生成摘要。
+2. 各平台并行执行：平台 `pre_commands` → 复用或构建 → 上传 Zealot → 尝试飞书通知 → 平台 `next_commands`。
+3. 所有选中平台（包括各自的后置命令）成功后，执行一次全局 `next_commands`。
+
+配置了全局 `next_commands` 时，即使其它平台运行在独立系统终端，主进程也会等待它们完成；无需按回车关闭子窗口才继续。未配置全局后置命令时保留原来的系统终端分叉行为。
+
+每份列表按顺序执行，工作目录均为 Flutter 项目根目录。任一命令非零退出会停止该列表，并使对应任务失败；失败路径不执行其后置命令。平台失败不会取消已经并行运行的其它平台，但会跳过全局后置命令。飞书通知失败仍只警告，因此不会阻止后置命令。
+
+命令使用参数拆分后直接启动进程，不经过 shell；需要 `&&`、管道、重定向等语法时，请显式使用 `bash -c` 或调用脚本。配置不是字符串数组时会报配置错误。全局后置命令失败会返回非零退出码，但不会撤销已上传的安装包。
 
 构建时工具会追加 `--dart-define=GIT_COMMIT=短提交号`，不改写你命令的主体。
 
@@ -342,8 +362,8 @@ tbqrfly run --env prod --platform all
 2. 执行 `pre_commands`  
 3. 生成摘要  
 4. 多平台：当前终端优先 iOS，其它平台按 `terminal` 并行  
-5. 每平台：询问是否复用已有产物 → 构建 → 上传 Zealot → 飞书发二维码  
-6. 构建或上传失败：尝试发飞书失败文本，并以非零退出码结束；上传成功后的飞书通知失败仅警告，不影响退出码和成功提交记录
+5. 每平台：平台前置命令 → 询问是否复用已有产物 → 构建 → 上传 Zealot → 飞书发二维码 → 平台后置命令
+6. 构建或上传失败：尝试发飞书失败文本，并以非零退出码结束；上传成功后的飞书通知失败仅警告，不影响退出码和成功提交记录；配置了全局后置命令时，等所有平台成功后执行一次
 
 ### 6.2 协作说明
 

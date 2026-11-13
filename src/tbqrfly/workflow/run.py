@@ -21,17 +21,22 @@ from .fork import (
     spawn_platform_inline,
     spawn_platform_terminal,
     wait_inline_process,
+    wait_terminal_process,
     write_shared_state,
 )
 from .llm import generate_summary, save_history
 from .notify import notify_failure, upload_and_notify
-from .pre_commands import run_pre_commands
+from .pre_commands import run_commands, run_pre_commands
 from .project_info import ProjectInfo, load_project_info
 
 
 def _classify_step(error: BaseException) -> str:
     text = str(error)
     lowered = text.lower()
+    if "前置命令" in text:
+        return "pre_commands"
+    if "后置命令" in text:
+        return "next_commands"
     if "构建失败" in text or "ipa 导出" in lowered:
         return "build"
     if "产物" in text:
@@ -140,6 +145,12 @@ def run_platform_pipeline(
 ) -> None:
     print(f"\n===== 平台 {platform} =====")
     try:
+        block = config.platform_config(env, platform)
+        run_commands(
+            config.project_root,
+            block.get("pre_commands", []),
+            label=f"{env}/{platform} 前置命令",
+        )
         existing = find_reusable(config, platform)
         reuse = bool(existing) and _ask_reuse(platform, config.wait_timeout)
         if reuse and existing is not None:
@@ -159,6 +170,11 @@ def run_platform_pipeline(
             artifact=artifact,
             info=info,
             summary=summary,
+        )
+        run_commands(
+            config.project_root,
+            block.get("next_commands", []),
+            label=f"{env}/{platform} 后置命令",
         )
     except Exception as exc:
         notify_failure(
@@ -249,6 +265,7 @@ def run_workflow(
     inline_jobs: list[tuple[str, object]] = []
     exit_code = 0
     spawned_system = False
+    terminal_jobs: list[str] = []
 
     try:
         for other in others:
@@ -270,6 +287,7 @@ def run_workflow(
             )
             if spawned:
                 spawned_system = True
+                terminal_jobs.append(other)
             else:
                 print(f"改为当前终端串行执行: {other}")
                 try:
@@ -293,7 +311,18 @@ def run_workflow(
             if code != 0:
                 exit_code = 1
 
-        # Only record history from the primary/shared process when primary succeeded.
+        if config.next_commands:
+            for other in terminal_jobs:
+                if wait_terminal_process(shared, other) != 0:
+                    exit_code = 1
+            if exit_code == 0:
+                try:
+                    run_commands(project_root, config.next_commands, label="全局后置命令")
+                except Exception as exc:
+                    print(f"全局后置命令失败: {exc}")
+                    exit_code = 1
+
+        # Only record history after all awaited tasks and global hooks succeed.
         if exit_code == 0:
             try:
                 save_history(config.history_path, info.commit, summary)
@@ -301,11 +330,10 @@ def run_workflow(
                 print(f"警告: 写入 commit_history 失败: {exc}")
 
         print("\n===== 当前终端流程结束 =====")
-        if others and spawned_system:
+        if others and spawned_system and not config.next_commands:
             print("其他平台可能仍在独立系统终端中运行，请查看对应窗口。")
         return exit_code
     finally:
-        # Inline/serial forks are done here; system Terminal children may still need
-        # the file, so leave it for stale cleanup on the next run.
-        if shared is not None and not spawned_system:
+        # Detached Terminal children may still need the shared file.
+        if shared is not None and (not spawned_system or config.next_commands):
             remove_path_quiet(shared)

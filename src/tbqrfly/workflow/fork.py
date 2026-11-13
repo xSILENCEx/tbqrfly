@@ -49,7 +49,7 @@ def cleanup_runtime_temps(
         return
     now = time.time()
     keep_resolved = keep.resolve() if keep is not None else None
-    patterns = (".shared_*.json", "run_*.command")
+    patterns = (".shared_*.json", ".shared_*.status", ".shared_*.status.tmp", "run_*.command")
     for pattern in patterns:
         for path in directory.glob(pattern):
             try:
@@ -113,10 +113,18 @@ def spawn_platform_terminal(
     directory = config_dir(project_root)
     directory.mkdir(parents=True, exist_ok=True)
     runner = directory / f"run_{platform}_{int(time.time() * 1000)}.command"
+    status = terminal_status_path(shared_state, platform)
+    temporary_status = status.with_suffix(".status.tmp")
+    write_status = (
+        f'printf \"%s\\n\" "$code" > {shlex.quote(str(temporary_status))}'
+        f" && mv {shlex.quote(str(temporary_status))} {shlex.quote(str(status))}"
+    )
+    exit_trap = f"code=$?; {write_status}"
     script_body = "\n".join(
         [
             "#!/bin/bash",
             "set +e",
+            f"trap {shlex.quote(exit_trap)} EXIT",
             f"cd {shlex.quote(str(project_root))}",
             (
                 f"{shlex.quote(_tbqrfly_bin())} run "
@@ -125,6 +133,8 @@ def spawn_platform_terminal(
                 f"--shared-state {shlex.quote(str(shared_state))}"
             ),
             "code=$?",
+            write_status,
+            "trap - EXIT",
             "echo",
             f'echo "[tbqrfly] {platform} 分叉结束，退出码 $code"',
             'echo "按回车关闭窗口..."',
@@ -149,6 +159,24 @@ def spawn_platform_terminal(
     print(f"已新开系统终端构建平台: {platform}")
     print(f"  脚本: {runner}")
     return True
+
+
+def terminal_status_path(shared_state: Path, platform: str) -> Path:
+    return shared_state.with_name(f"{shared_state.stem}_{platform}.status")
+
+
+def wait_terminal_process(shared_state: Path, platform: str) -> int:
+    status = terminal_status_path(shared_state, platform)
+    print(f"等待系统终端平台结束: {platform}")
+    while not status.is_file():
+        time.sleep(0.2)
+    try:
+        code = int(status.read_text().strip())
+    except (OSError, ValueError):
+        code = 1
+    remove_path_quiet(status)
+    print(f"[tbqrfly] {platform} 系统终端任务结束，退出码 {code}")
+    return code
 
 
 def spawn_platform_inline(

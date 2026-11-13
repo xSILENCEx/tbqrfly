@@ -47,3 +47,11 @@ tbqrfly update
 - Zealot：https://github.com/tryzealot/zealot  
 - Zealot Docker：https://github.com/tryzealot/zealot-docker  
 - Zealot 文档：https://zealot.ews.im/  
+
+## 自定义前后置命令
+
+`.tbqrfly/builds.json` 的顶层和 `builds.<env>.<platform>` 均支持
+`pre_commands` / `next_commands` 字符串数组（可省略，默认 `[]`）。
+执行顺序为：全局前置一次 → 各平台并行执行前置、发布、后置 → 全部成功后全局后置一次。
+`next_commands` 仅成功后执行；命令失败会使对应任务失败。
+详见 [命令配置与执行顺序](docs/tutorial.md#44-前后置命令的顺序与失败行为)。

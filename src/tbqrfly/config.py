@@ -15,6 +15,12 @@ class ConfigError(ValueError):
     pass
 
 
+def command_list(value: Any, location: str) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ConfigError(f"{location} 必须是字符串数组")
+    return [item.strip() for item in value if item.strip()]
+
+
 def _expand(value: Any) -> Any:
     if isinstance(value, str):
         return _ENV_PATTERN.sub(lambda m: os.environ.get(m.group(1), ""), value)
@@ -82,6 +88,7 @@ class RuntimeConfig:
     # inline: 在当前终端并行跑其它平台（适合 Cursor/VS Code）
     terminal: str = "auto"
     pre_commands: list[str] = field(default_factory=list)
+    next_commands: list[str] = field(default_factory=list)
     prompt_text: str = ""
     message_template: str = ""
     source_dir: Path = field(default_factory=Path)
@@ -185,10 +192,18 @@ def load_runtime_config(project_root: Path) -> RuntimeConfig:
     if terminal not in {"auto", "system", "inline"}:
         raise ConfigError("builds.json terminal 只能是 auto / system / inline")
 
-    pre_raw = builds_raw.get("pre_commands") or []
-    if not isinstance(pre_raw, list):
-        raise ConfigError("builds.json pre_commands 必须是字符串数组")
-    pre_commands = [str(item).strip() for item in pre_raw if str(item).strip()]
+    pre_commands = command_list(builds_raw.get("pre_commands", []), "pre_commands")
+    next_commands = command_list(builds_raw.get("next_commands", []), "next_commands")
+    for env, platforms in builds_map.items():
+        if not isinstance(platforms, dict):
+            continue
+        for platform, block in platforms.items():
+            if not isinstance(block, dict):
+                continue
+            for key in ("pre_commands", "next_commands"):
+                block[key] = command_list(
+                    block.get(key, []), f"builds.{env}.{platform}.{key}"
+                )
 
     return RuntimeConfig(
         project_root=project_root,
@@ -205,6 +220,7 @@ def load_runtime_config(project_root: Path) -> RuntimeConfig:
         llm=llm,
         terminal=terminal,
         pre_commands=pre_commands,
+        next_commands=next_commands,
         prompt_text=prompt_text,
         message_template=message_template,
         source_dir=directory,
