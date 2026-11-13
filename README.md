@@ -30,6 +30,8 @@ tbqrfly run
 
 ```bash
 tbqrfly update
+tbqrfly refresh --dry-run
+tbqrfly refresh
 ```
 
 ## 命令
@@ -41,6 +43,7 @@ tbqrfly update
 | `tbqrfly doctor` | 环境检查 |
 | `tbqrfly run` | 发布 |
 | `tbqrfly update` | 升级工具 |
+| `tbqrfly refresh` | 保留自定义内容，补齐新增配置项（支持 `--dry-run`） |
 
 ## 相关链接
 
@@ -70,3 +73,9 @@ tbqrfly beta --platform ios
 
 无需 Zealot 配置；飞书通知继续复用 `feishu.json`，通知失败不影响发布结果。
 完整配置、Fastlane 依赖与签名准备见 [平台内测发布教程](docs/beta.md)。
+
+## 配置刷新
+
+升级后使用 `tbqrfly refresh` 补齐新增配置项，保留已有凭据、自定义命令及字段。
+不会重新添加已移除的环境或平台，也不进行结构迁移。更新前自动备份；
+`--dry-run` 可只预览。详见 [配置刷新说明](docs/refresh.md)。

@@ -406,3 +406,9 @@ A: `terminal: auto` 在 Cursor/VS Code 内默认 inline 并行；要系统终端
 
 TestFlight 等平台内测发布使用独立的 `tbqrfly beta` 和 `beta.json`，与 Zealot 配置互不依赖。
 固定构建 prod；目前支持 iOS，Android 尚未实现。详见 [平台内测发布教程](beta.md)。
+
+## 10. 升级后刷新配置
+
+升级后运行 `tbqrfly refresh --dry-run` 预览，再执行 `tbqrfly refresh` 补齐新增项。
+保留已有凭据、命令和自定义字段，更新前自动备份；不做结构迁移。
+不要用 `init --force` 更新已定制的配置。详见 [配置刷新说明](refresh.md)。

@@ -11,6 +11,7 @@ from .config import ConfigError, find_project_root, load_runtime_config
 from .doctor import collect_checks, print_checks
 from .init_cmd import repair_export_options, run_init
 from .update_cmd import install_or_update
+from .refresh import refresh_config
 from .workflow.run import run_workflow
 
 
@@ -38,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="仅根据 Xcode DEVELOPMENT_TEAM 生成/回填 ExportOptions.plist",
     )
+
+    refresh_p = sub.add_parser("refresh", help="保留自定义配置，补齐缺失字段")
+    refresh_p.add_argument("--project", help="Flutter 项目根目录")
+    refresh_p.add_argument("--target", choices=("all", "run", "beta"), default="all")
+    refresh_p.add_argument("--dry-run", action="store_true", help="仅预览，不修改文件")
 
     run_p = sub.add_parser("run", help="构建、上传并发送飞书二维码")
     run_p.add_argument("--project", help="Flutter 项目根目录")
@@ -76,6 +82,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "update":
             return install_or_update(ref=args.ref, repo=args.repo)
+
+        if args.command == "refresh":
+            return refresh_config(
+                _project_root(args), target=args.target, dry_run=args.dry_run
+            )
 
         if args.command == "init":
             root = _project_root(args)
