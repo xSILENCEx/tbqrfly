@@ -36,7 +36,7 @@ tbqrfly update
 
 | 命令 | 说明 |
 |------|------|
-| `tbqrfly init` | 初始化 `.tbqrfly/`，并写入 VS Code 任务 `tbqrfly: run` |
+| `tbqrfly init` | 初始化 `.tbqrfly/`，并写入 VS Code 任务 `tbqrfly: run` 和 `tbqrfly: beta` |
 | `tbqrfly init --repair-export` | 按 Xcode Team 生成/回填 ExportOptions |
 | `tbqrfly doctor` | 环境检查 |
 | `tbqrfly run` | 发布 |

@@ -223,7 +223,10 @@ def run_init(project_root: Path, *, force: bool = False) -> int:
     _write_builds(project_root, directory / "builds.json", app_name, export_rel)
     _ensure_gitignore(project_root)
     try:
-        vscode_msg = ensure_vscode_tbqrfly_task(project_root)
+        vscode_msg = "\n".join(
+            ensure_vscode_tbqrfly_task(project_root, target=target)
+            for target in ("run", "beta")
+        )
     except ValueError as exc:
         vscode_msg = f"写入 .vscode/tasks.json 失败: {exc}"
 

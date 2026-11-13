@@ -44,7 +44,14 @@ class TbqrflyTests(unittest.TestCase):
             code = run_init(root, force=True)
             # flutter/git may be missing in CI sandbox -> fatal allowed with force still writes
             self.assertTrue((root / ".tbqrfly" / "builds.json").is_file())
-            builds = json.loads((root / ".tbqrfly" / "builds.json").read_text(encoding="utf-8"))
+            tasks = json.loads((root / ".vscode" / "tasks.json").read_text())["tasks"]
+            self.assertEqual(
+                [task["label"] for task in tasks], ["tbqrfly: run", "tbqrfly: beta"]
+            )
+
+            builds = json.loads(
+                (root / ".tbqrfly" / "builds.json").read_text(encoding="utf-8")
+            )
             self.assertEqual(builds["app_name"], "demo_app")
             # Fill required fields so load works even if doctor failed.
             zealot = {
@@ -64,6 +71,26 @@ class TbqrflyTests(unittest.TestCase):
             self.assertEqual(config.app_name, "demo_app")
             self.assertIn("dev", config.env_names())
             self.assertEqual(code in {0, 2}, True)
+
+    def test_init_appends_beta_task_without_changing_existing_tasks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "pubspec.yaml").write_text("name: demo\nversion: 1.0.0+1\n")
+            vscode = root / ".vscode"
+            vscode.mkdir()
+            existing = [
+                {"label": "custom", "type": "shell", "command": "echo custom"},
+                {"label": "tbqrfly: run", "type": "process", "command": "custom-run"},
+            ]
+            tasks_path = vscode / "tasks.json"
+            tasks_path.write_text(json.dumps({"version": "2.0.0", "tasks": existing}))
+            for _ in range(2):
+                run_init(root, force=True)
+                tasks = json.loads(tasks_path.read_text())["tasks"]
+                self.assertEqual(tasks[:2], existing)
+                self.assertEqual(len(tasks), 3)
+                self.assertEqual(tasks[2]["label"], "tbqrfly: beta")
+                self.assertEqual(tasks[2]["command"], "tbqrfly beta")
 
     def test_generate_export_options_from_team(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -109,8 +136,10 @@ class TbqrflyTests(unittest.TestCase):
     def test_default_build_commands_without_flavor(self) -> None:
         from importlib import resources
 
-        raw = resources.files("tbqrfly").joinpath("templates", "builds.json").read_text(
-            encoding="utf-8"
+        raw = (
+            resources.files("tbqrfly")
+            .joinpath("templates", "builds.json")
+            .read_text(encoding="utf-8")
         )
         self.assertNotIn("--flavor", raw)
         self.assertIn('"pre_commands": []', raw)

@@ -231,7 +231,7 @@ tbqrfly init
 
 - 创建 `.tbqrfly/` 并写入默认配置（整目录加入 `.gitignore`）  
 - 尝试从 Xcode `DEVELOPMENT_TEAM` 生成 `ExportOptions.plist`  
-- 在 `.vscode/tasks.json` 追加任务 **`tbqrfly: run`**（没有则创建）  
+- 在 `.vscode/tasks.json` 追加任务 **`tbqrfly: run`** 和 **`tbqrfly: beta`**（没有则创建；保留已有任务且不重复添加）
 
 已有配置只需补 ExportOptions 时：
 
