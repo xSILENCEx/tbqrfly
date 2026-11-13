@@ -1,0 +1,19 @@
+default_platform(:ios)
+
+platform :ios do
+  lane :tbqrfly_upload do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch('TBQRFLY_ASC_KEY_ID'),
+      issuer_id: ENV.fetch('TBQRFLY_ASC_ISSUER_ID'),
+      key_filepath: ENV.fetch('TBQRFLY_ASC_KEY_FILE'),
+      in_house: false
+    )
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ENV.fetch('TBQRFLY_BETA_IPA'),
+      app_identifier: ENV.fetch('TBQRFLY_BETA_BUNDLE_ID'),
+      skip_submission: true,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end

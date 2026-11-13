@@ -55,3 +55,17 @@ tbqrfly update
 执行顺序为：全局前置一次 → 各平台并行执行前置、发布、后置 → 全部成功后全局后置一次。
 `next_commands` 仅成功后执行；命令失败会使对应任务失败。
 详见 [命令配置与执行顺序](docs/tutorial.md#44-前后置命令的顺序与失败行为)。
+
+## 平台内测通道
+
+使用独立的 `.tbqrfly/beta.json`，固定构建 prod，按平台配置前后置命令和发布器。
+目前支持 iOS TestFlight，Android Google Play 发布器后续加入。
+
+```bash
+tbqrfly init --target beta
+tbqrfly doctor --target beta
+tbqrfly beta --platform ios
+```
+
+无需 Zealot 配置；飞书通知继续复用 `feishu.json`，通知失败不影响发布结果。
+完整配置、Fastlane 依赖与签名准备见 [平台内测发布教程](docs/beta.md)。

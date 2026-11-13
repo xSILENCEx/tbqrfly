@@ -19,8 +19,10 @@ TBQRFLY_TASK = {
 }
 
 
-def ensure_vscode_tbqrfly_task(project_root: Path) -> str:
-    """Create or append tbqrfly run task in .vscode/tasks.json. Returns status text."""
+def ensure_vscode_tbqrfly_task(project_root: Path, *, target: str = "run") -> str:
+    """Create or append a tbqrfly task without changing existing tasks."""
+    label = f"tbqrfly: {target}"
+    task = {**TBQRFLY_TASK, "label": label, "command": f"tbqrfly {target}"}
     vscode_dir = project_root / ".vscode"
     tasks_path = vscode_dir / "tasks.json"
     vscode_dir.mkdir(parents=True, exist_ok=True)
@@ -44,11 +46,11 @@ def ensure_vscode_tbqrfly_task(project_root: Path) -> str:
         raise ValueError(".vscode/tasks.json 的 tasks 必须是数组")
 
     for item in tasks:
-        if isinstance(item, dict) and item.get("label") == TBQRFLY_TASK_LABEL:
-            return f"已存在 VS Code 任务: {TBQRFLY_TASK_LABEL}（{tasks_path}）"
+        if isinstance(item, dict) and item.get("label") == label:
+            return f"已存在 VS Code 任务: {label}（{tasks_path}）"
 
-    tasks.append(dict(TBQRFLY_TASK))
+    tasks.append(task)
     tasks_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    return f"已写入 VS Code 任务: {TBQRFLY_TASK_LABEL}（{tasks_path}）"
+    return f"已写入 VS Code 任务: {label}（{tasks_path}）"

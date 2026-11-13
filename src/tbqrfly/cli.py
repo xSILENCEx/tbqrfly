@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .beta_init import init_beta
+from .beta_doctor import collect_beta_checks
 from .config import ConfigError, find_project_root, load_runtime_config
 from .doctor import collect_checks, print_checks
 from .init_cmd import repair_export_options, run_init
@@ -21,12 +23,15 @@ def _project_root(args: argparse.Namespace) -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="tbqrfly", description="Flutter 打包与二维码发布工具")
+    parser = argparse.ArgumentParser(
+        prog="tbqrfly", description="Flutter 打包与二维码发布工具"
+    )
     parser.add_argument("--version", action="version", version=f"tbqrfly {__version__}")
     sub = parser.add_subparsers(dest="command")
 
     init_p = sub.add_parser("init", help="初始化 .tbqrfly 配置目录")
     init_p.add_argument("--project", help="Flutter 项目根目录")
+    init_p.add_argument("--target", choices=("run", "beta"), default="run")
     init_p.add_argument("--force", action="store_true", help="覆盖已有配置")
     init_p.add_argument(
         "--repair-export",
@@ -44,7 +49,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_p.add_argument("--debug", action="store_true")
 
+    beta_p = sub.add_parser("beta", help="构建 prod 包并发布到平台内测通道")
+    beta_p.add_argument("--project", help="Flutter 项目根目录")
+    beta_p.add_argument("--platform", help="平台名，或 all")
+    beta_p.add_argument("--shared-state", help=argparse.SUPPRESS)
+    beta_p.add_argument("--debug", action="store_true")
+
     doctor_p = sub.add_parser("doctor", help="检查运行环境与配置")
+    doctor_p.add_argument("--target", choices=("run", "beta"), default="run")
     doctor_p.add_argument("--project", help="Flutter 项目根目录")
 
     update_p = sub.add_parser("update", help="从 GitHub 更新 tbqrfly")
@@ -67,13 +79,24 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "init":
             root = _project_root(args)
+            if args.target == "beta":
+                if args.repair_export:
+                    raise ConfigError(
+                        "--repair-export 用于 Zealot；Beta 导出配置请在 beta.json 中指定"
+                    )
+                return init_beta(root, force=args.force)
             if args.repair_export:
                 return repair_export_options(root)
             return run_init(root, force=args.force)
 
         if args.command == "doctor":
+            if args.target == "beta":
+                code = print_checks(collect_beta_checks(_project_root(args)))
+                return 0 if code != 2 else 2
             root = find_project_root(
-                explicit=Path(args.project).expanduser().resolve() if args.project else None
+                explicit=(
+                    Path(args.project).expanduser().resolve() if args.project else None
+                )
             )
             config = None
             if root is not None:
@@ -87,15 +110,20 @@ def main(argv: list[str] | None = None) -> int:
             code = print_checks(items)
             return 0 if code != 2 else 2
 
-        if args.command == "run":
+        if args.command in ("run", "beta"):
             root = _project_root(args)
-            shared = Path(args.shared_state).expanduser().resolve() if args.shared_state else None
+            shared = (
+                Path(args.shared_state).expanduser().resolve()
+                if args.shared_state
+                else None
+            )
             return run_workflow(
                 root,
-                env=args.env,
+                env=getattr(args, "env", None),
                 platform=args.platform,
                 shared_state=shared,
                 debug=args.debug,
+                target=args.command,
             )
 
         parser.error(f"未知命令: {args.command}")

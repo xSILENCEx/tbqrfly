@@ -29,7 +29,9 @@ def write_shared_state(
         "info": info,
         "created_at": time.time(),
     }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return path
 
 
@@ -49,7 +51,12 @@ def cleanup_runtime_temps(
         return
     now = time.time()
     keep_resolved = keep.resolve() if keep is not None else None
-    patterns = (".shared_*.json", ".shared_*.status", ".shared_*.status.tmp", "run_*.command")
+    patterns = (
+        ".shared_*.json",
+        ".shared_*.status",
+        ".shared_*.status.tmp",
+        "run_*.command",
+    )
     for pattern in patterns:
         for path in directory.glob(pattern):
             try:
@@ -105,6 +112,7 @@ def spawn_platform_terminal(
     env: str,
     platform: str,
     shared_state: Path,
+    command: str = "run",
 ) -> bool:
     """Open a new macOS Terminal.app window via a .command file."""
     if platform_system() != "Darwin":
@@ -116,7 +124,7 @@ def spawn_platform_terminal(
     status = terminal_status_path(shared_state, platform)
     temporary_status = status.with_suffix(".status.tmp")
     write_status = (
-        f'printf \"%s\\n\" "$code" > {shlex.quote(str(temporary_status))}'
+        f'printf "%s\\n" "$code" > {shlex.quote(str(temporary_status))}'
         f" && mv {shlex.quote(str(temporary_status))} {shlex.quote(str(status))}"
     )
     exit_trap = f"code=$?; {write_status}"
@@ -127,9 +135,9 @@ def spawn_platform_terminal(
             f"trap {shlex.quote(exit_trap)} EXIT",
             f"cd {shlex.quote(str(project_root))}",
             (
-                f"{shlex.quote(_tbqrfly_bin())} run "
-                f"--env {shlex.quote(env)} "
-                f"--platform {shlex.quote(platform)} "
+                f"{shlex.quote(_tbqrfly_bin())} {shlex.quote(command)} "
+                + (f"--env {shlex.quote(env)} " if command == "run" else "")
+                + f"--platform {shlex.quote(platform)} "
                 f"--shared-state {shlex.quote(str(shared_state))}"
             ),
             "code=$?",
@@ -185,6 +193,7 @@ def spawn_platform_inline(
     env: str,
     platform: str,
     shared_state: Path,
+    command: str = "run",
 ) -> subprocess.Popen[str]:
     """Start a platform pipeline as a child process; stream logs with a prefix.
 
@@ -192,11 +201,10 @@ def spawn_platform_inline(
     panel from an external CLI, so we keep parallel work inside the current IDE
     terminal instead of launching Terminal.app.
     """
-    command = [
+    invocation = [
         _tbqrfly_bin(),
-        "run",
-        "--env",
-        env,
+        command,
+        *(["--env", env] if command == "run" else []),
         "--platform",
         platform,
         "--shared-state",
@@ -204,7 +212,7 @@ def spawn_platform_inline(
     ]
     print(f"已在当前 IDE 终端并行启动平台: {platform}")
     process = subprocess.Popen(
-        command,
+        invocation,
         cwd=project_root,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,

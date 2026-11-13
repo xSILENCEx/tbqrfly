@@ -401,3 +401,8 @@ A: `terminal: auto` 在 Cursor/VS Code 内默认 inline 并行；要系统终端
 | Zealot 文档 | https://zealot.ews.im/ |
 | Zealot API | https://zealot.ews.im/docs/developer-guide/api |
 | 飞书开放平台 | https://open.feishu.cn/ |
+
+## 9. 平台内测通道
+
+TestFlight 等平台内测发布使用独立的 `tbqrfly beta` 和 `beta.json`，与 Zealot 配置互不依赖。
+固定构建 prod；目前支持 iOS，Android 尚未实现。详见 [平台内测发布教程](beta.md)。
