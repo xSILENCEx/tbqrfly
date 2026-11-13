@@ -60,6 +60,33 @@ def upload_and_notify(
         print("飞书未配置完整，跳过通知")
         return
 
+    try:
+        _send_success_notification(
+            config,
+            env=env,
+            platform=platform,
+            info=info,
+            summary=summary,
+            install_url=install_url,
+            qrcode_url=qrcode_url,
+        )
+    except Exception as exc:  # noqa: BLE001 - notification must not fail a completed upload
+        print(
+            f"警告: {platform} 已上传至 Zealot，但飞书通知失败"
+            f"（{type(exc).__name__}）；发布结果不受影响。"
+        )
+
+
+def _send_success_notification(
+    config: RuntimeConfig,
+    *,
+    env: str,
+    platform: str,
+    info: ProjectInfo,
+    summary: str,
+    install_url: str,
+    qrcode_url: str,
+) -> None:
     display_platform = _display_platform(platform)
     values = {
         "platform": display_platform,
