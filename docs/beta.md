@@ -35,7 +35,7 @@ tbqrfly beta --platform all
   "builds": {
     "ios": {
       "pre_commands": [],
-      "build_command": "flutter build ipa --release --flavor prod --dart-define=FLAVOR=prod",
+      "build_command": "flutter build ipa --release",
       "export_options": "ios/ExportOptions-AppStore.plist",
       "artifacts": [
         "build/ios/ipa/*.ipa"
@@ -51,9 +51,9 @@ tbqrfly beta --platform all
     },
     "android": {
       "pre_commands": [],
-      "build_command": "flutter build appbundle --release --flavor prod --dart-define=FLAVOR=prod",
+      "build_command": "flutter build appbundle --release",
       "artifacts": [
-        "build/app/outputs/bundle/prodRelease/*.aab"
+        "build/app/outputs/bundle/release/*.aab"
       ],
       "publish": {
         "provider": "google_play",
@@ -81,15 +81,16 @@ tbqrfly beta --platform all
 | `terminal` | 与 Zealot 一致：auto / inline / system；保留多平台并行 |
 | 顶层 `pre_commands` / `next_commands` | 全局前置与成功后的全局后置，各执行一次；默认空数组 |
 | `builds.<platform>.pre_commands` / `next_commands` | 对应平台前置与成功后的后置；默认空数组 |
-| `build_command` | 完整构建命令；默认模板使用 prod，显式 dev/debug/profile 参数会被拒绝 |
+| `build_command` | 完整构建命令；默认不指定 flavor 或 FLAVOR，显式非 prod/debug/profile 参数会被拒绝 |
 | `export_options` | iOS App Store 导出配置 plist |
 | `artifacts` | 当前平台的产物路径数组，可使用项目相对路径通配符 |
 | `publish` | 平台发布器配置；当前只支持 ios/testflight |
 | `notify` | 可选布尔值，默认 true；凭据复用 `feishu.json`，发送文本通知 |
 
 全局配置中不使用 `default_env`；`builds` 下直接放平台，不嵌套 dev/prod。
-不使用 flavor 的项目可去掉构建命令中的 `--flavor prod`；工具无法推断自定义脚本
-或项目内部的环境实现，请确保自定义构建入口实际生成生产环境包。
+模板不预设项目的 flavor 或 `FLAVOR` 参数；需要时自行在构建命令中配置，
+并同步调整产物路径。工具无法推断自定义脚本或项目内部的环境实现，
+请确保自定义构建入口实际生成生产环境包。
 
 ## iOS 准备
 

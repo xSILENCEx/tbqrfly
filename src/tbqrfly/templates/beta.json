@@ -7,7 +7,7 @@
   "builds": {
     "ios": {
       "pre_commands": [],
-      "build_command": "flutter build ipa --release --flavor prod --dart-define=FLAVOR=prod",
+      "build_command": "flutter build ipa --release",
       "export_options": "ios/ExportOptions-AppStore.plist",
       "artifacts": [
         "build/ios/ipa/*.ipa"
@@ -23,9 +23,9 @@
     },
     "android": {
       "pre_commands": [],
-      "build_command": "flutter build appbundle --release --flavor prod --dart-define=FLAVOR=prod",
+      "build_command": "flutter build appbundle --release",
       "artifacts": [
-        "build/app/outputs/bundle/prodRelease/*.aab"
+        "build/app/outputs/bundle/release/*.aab"
       ],
       "publish": {
         "provider": "google_play",

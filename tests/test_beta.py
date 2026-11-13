@@ -185,13 +185,14 @@ class BetaTests(unittest.TestCase):
         self.assertFalse((self.directory / "zealot.json").exists())
         initialized = json.loads((self.directory / "beta.json").read_text())
         android = initialized["builds"]["android"]
-        self.assertIn(
-            "build appbundle --release --flavor prod", android["build_command"]
+        self.assertEqual(android["build_command"], "flutter build appbundle --release")
+        self.assertEqual(
+            initialized["builds"]["ios"]["build_command"], "flutter build ipa --release"
         )
         self.assertEqual(android["pre_commands"], [])
         self.assertEqual(android["next_commands"], [])
         self.assertEqual(
-            android["artifacts"], ["build/app/outputs/bundle/prodRelease/*.aab"]
+            android["artifacts"], ["build/app/outputs/bundle/release/*.aab"]
         )
         self.assertEqual(
             android["publish"],
@@ -417,7 +418,7 @@ class BetaTests(unittest.TestCase):
         self.assertTrue(config.history_path.is_file())
         self.assertFalse((self.directory / "commit_history.json").exists())
 
-    def test_build_preserves_prod_and_adds_export_and_commit(self):
+    def test_build_adds_export_and_commit_without_injecting_flavor(self):
         config = self.save()
         process = Mock(stdout=iter([]))
         process.wait.return_value = 0
@@ -426,9 +427,8 @@ class BetaTests(unittest.TestCase):
         ) as popen:
             run_build(config, "prod", "ios", self.info)
             args = popen.call_args.args[0]
-            self.assertIn("--flavor", args)
-            self.assertIn("prod", args)
-            self.assertIn("--dart-define=FLAVOR=prod", args)
+            self.assertNotIn("--flavor", args)
+            self.assertNotIn("--dart-define=FLAVOR=prod", args)
             self.assertIn("--dart-define=GIT_COMMIT=abc", args)
             self.assertIn(f"--export-options-plist={self.export}", args)
 
@@ -522,7 +522,8 @@ elif name == "git":
         print("- test change")
 elif name == "flutter":
     assert args[:2] == ["build", "ipa"]
-    assert "--dart-define=FLAVOR=prod" in args
+    assert "--flavor" not in args
+    assert "--dart-define=FLAVOR=prod" not in args
     assert "--dart-define=GIT_COMMIT=abc" in args
     ipa = root / "build/ios/ipa/demo.ipa"
     ipa.parent.mkdir(parents=True, exist_ok=True)
