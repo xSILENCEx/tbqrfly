@@ -63,6 +63,7 @@ tbqrfly update
 
 ```bash
 tbqrfly init --target beta
+# 当前仅支持 iOS，运行 doctor 前请移除模板中的 builds.android 示例
 tbqrfly doctor --target beta
 tbqrfly beta --platform ios
 ```

@@ -59,6 +59,8 @@ class BetaTests(unittest.TestCase):
         self.raw = json.loads(
             resources.files("tbqrfly").joinpath("templates", "beta.json").read_text()
         )
+        # Most tests exercise the currently supported iOS-only configuration.
+        self.raw["builds"].pop("android", None)
         block = self.raw["builds"]["ios"]
         block["export_options"] = str(self.export)
         block["publish"].update(
@@ -181,6 +183,26 @@ class BetaTests(unittest.TestCase):
             (self.directory / "feishu.json").read_text(), "existing feishu"
         )
         self.assertFalse((self.directory / "zealot.json").exists())
+        initialized = json.loads((self.directory / "beta.json").read_text())
+        android = initialized["builds"]["android"]
+        self.assertIn(
+            "build appbundle --release --flavor prod", android["build_command"]
+        )
+        self.assertEqual(android["pre_commands"], [])
+        self.assertEqual(android["next_commands"], [])
+        self.assertEqual(
+            android["artifacts"], ["build/app/outputs/bundle/prodRelease/*.aab"]
+        )
+        self.assertEqual(
+            android["publish"],
+            {
+                "provider": "google_play",
+                "package_name": "",
+                "service_account_file": "${GOOGLE_PLAY_SERVICE_ACCOUNT_FILE}",
+                "track": "internal",
+                "release_status": "completed",
+            },
+        )
         with self.assertRaises(ConfigError):
             init_beta(self.root)
         tasks = json.loads((self.root / ".vscode/tasks.json").read_text())["tasks"]

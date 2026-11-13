@@ -9,6 +9,7 @@ Android → Google Play 等渠道尚未实现，选中未支持的平台或 prov
 
 ```bash
 tbqrfly init --target beta
+# 当前仅使用 iOS 时，先从 beta.json 移除尚未支持的 builds.android 示例
 tbqrfly doctor --target beta
 tbqrfly beta
 tbqrfly beta --platform ios
@@ -27,20 +28,39 @@ tbqrfly beta --platform all
   "app_name": "Insvibe",
   "wait_timeout": 10,
   "terminal": "auto",
-  "pre_commands": ["dart run tool/configure_native_sdks.dart"],
+  "pre_commands": [
+    "dart run tool/configure_native_sdks.dart"
+  ],
   "next_commands": [],
   "builds": {
     "ios": {
       "pre_commands": [],
       "build_command": "flutter build ipa --release --flavor prod --dart-define=FLAVOR=prod",
       "export_options": "ios/ExportOptions-AppStore.plist",
-      "artifacts": ["build/ios/ipa/*.ipa"],
+      "artifacts": [
+        "build/ios/ipa/*.ipa"
+      ],
       "publish": {
         "provider": "testflight",
         "bundle_id": "ai.song.generator.music.maker.insvibe",
         "key_id": "${ASC_KEY_ID}",
         "issuer_id": "${ASC_ISSUER_ID}",
         "key_file": "${ASC_KEY_FILE}"
+      },
+      "next_commands": []
+    },
+    "android": {
+      "pre_commands": [],
+      "build_command": "flutter build appbundle --release --flavor prod --dart-define=FLAVOR=prod",
+      "artifacts": [
+        "build/app/outputs/bundle/prodRelease/*.aab"
+      ],
+      "publish": {
+        "provider": "google_play",
+        "package_name": "ai.song.generator.music.maker.insvibe",
+        "service_account_file": "${GOOGLE_PLAY_SERVICE_ACCOUNT_FILE}",
+        "track": "internal",
+        "release_status": "completed"
       },
       "next_commands": []
     }
@@ -135,7 +155,12 @@ Dart 符号、Crashlytics、原生 SDK 配置由项目脚本负责。已有
 
 ## 后续 Android 接入
 
-后续在 `builds.android` 中配置 AAB 构建与 `publish.provider: google_play`，
+模板已包含 `builds.android`：prod AAB 构建、产物路径、前后置命令，以及
+`publish.provider: google_play`、包名、服务账号文件、`internal` track 和发布状态。
+`service_account_file` 通过 `${GOOGLE_PLAY_SERVICE_ACCOUNT_FILE}` 引用本机服务账号 JSON 文件。
+当前要仅使用 iOS，请使用 `--platform ios`；`doctor` 会检查所有已配置平台，
+默认选择及 `--platform all` 也会包含 Android，因此运行这些命令前需移除 Android 示例。
+后续实现 Android 发布器时，
 发布器可参考 ai-music 的 `upload_aab`：使用服务账号上传 AAB 到 `internal` track。
 当前版本尚未实现该 provider，不会调用项目 Fastlane 或静默跳过。
 

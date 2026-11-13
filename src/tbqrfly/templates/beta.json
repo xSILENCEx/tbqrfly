@@ -9,13 +9,30 @@
       "pre_commands": [],
       "build_command": "flutter build ipa --release --flavor prod --dart-define=FLAVOR=prod",
       "export_options": "ios/ExportOptions-AppStore.plist",
-      "artifacts": ["build/ios/ipa/*.ipa"],
+      "artifacts": [
+        "build/ios/ipa/*.ipa"
+      ],
       "publish": {
         "provider": "testflight",
         "bundle_id": "",
         "key_id": "${ASC_KEY_ID}",
         "issuer_id": "${ASC_ISSUER_ID}",
         "key_file": "${ASC_KEY_FILE}"
+      },
+      "next_commands": []
+    },
+    "android": {
+      "pre_commands": [],
+      "build_command": "flutter build appbundle --release --flavor prod --dart-define=FLAVOR=prod",
+      "artifacts": [
+        "build/app/outputs/bundle/prodRelease/*.aab"
+      ],
+      "publish": {
+        "provider": "google_play",
+        "package_name": "",
+        "service_account_file": "${GOOGLE_PLAY_SERVICE_ACCOUNT_FILE}",
+        "track": "internal",
+        "release_status": "completed"
       },
       "next_commands": []
     }
