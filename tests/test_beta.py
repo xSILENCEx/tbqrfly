@@ -103,11 +103,11 @@ class BetaTests(unittest.TestCase):
             self.save()
 
     def test_unavailable_provider_is_explicit(self):
-        self.raw["builds"]["android"] = {"publish": {"provider": "google_play"}}
+        self.raw["builds"]["android"] = {"publish": {"provider": "future"}}
         config = self.save()
         # An unselected future platform does not block iOS.
         validate_beta(config, "prod", ["ios"])
-        with self.assertRaisesRegex(ConfigError, "尚不支持.*android/google_play"):
+        with self.assertRaisesRegex(ConfigError, "尚不支持.*android/future"):
             validate_beta(config, "prod", ["android"])
 
     def test_invalid_commands_and_config_values(self):

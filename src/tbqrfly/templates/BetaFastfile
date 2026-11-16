@@ -17,3 +17,20 @@ platform :ios do
     )
   end
 end
+
+platform :android do
+  lane :tbqrfly_upload do
+    upload_to_play_store(
+      json_key: ENV.fetch('TBQRFLY_PLAY_SERVICE_ACCOUNT_FILE'),
+      package_name: ENV.fetch('TBQRFLY_PLAY_PACKAGE_NAME'),
+      aab: ENV.fetch('TBQRFLY_BETA_AAB'),
+      track: 'internal',
+      release_status: ENV.fetch('TBQRFLY_PLAY_RELEASE_STATUS'),
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end

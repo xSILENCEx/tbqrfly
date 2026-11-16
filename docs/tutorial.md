@@ -405,7 +405,7 @@ A: `terminal: auto` 在 Cursor/VS Code 内默认 inline 并行；要系统终端
 ## 9. 平台内测通道
 
 TestFlight 等平台内测发布使用独立的 `tbqrfly beta` 和 `beta.json`，与 Zealot 配置互不依赖。
-固定构建 prod；目前支持 iOS，Android 尚未实现。详见 [平台内测发布教程](beta.md)。
+固定构建 prod；支持 iOS TestFlight 与 Android Google Play internal。详见 [平台内测发布教程](beta.md)。
 
 ## 10. 升级后刷新配置
 

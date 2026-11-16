@@ -21,9 +21,13 @@ def collect_beta_checks(
     except ConfigError as exc:
         items.append(CheckItem("fail", "beta_config", str(exc)))
         return items
-    if platform.system() != "Darwin":
+    selected = platforms or config.platforms_for("prod")
+    if "ios" in selected and platform.system() != "Darwin":
         items.append(CheckItem("fail", "macos", "TestFlight 构建与上传需要 macOS"))
-    for command in ("flutter", "git", "xcodebuild", "xcrun", "ruby", "bundle"):
+    commands = ["flutter", "git", "ruby", "bundle"]
+    commands += ["xcodebuild", "xcrun"] if "ios" in selected else []
+    commands += ["java"] if "android" in selected else []
+    for command in commands:
         items.append(check_command(command, command))
     if any(item.name == "ruby" and item.level == "ok" for item in items):
         try:

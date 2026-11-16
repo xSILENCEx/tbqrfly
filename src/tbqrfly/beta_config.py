@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import plistlib
 import shlex
 from dataclasses import dataclass
@@ -89,7 +90,7 @@ def validate_beta(config: BetaConfig, env: str, platforms: list[str]) -> None:
         if not isinstance(publish, dict):
             raise ConfigError(f"builds.{platform}.publish 必须是对象")
         provider = publish.get("provider")
-        if platform != "ios" or provider != "testflight":
+        if (platform, provider) not in (("ios", "testflight"), ("android", "google_play")):
             raise ConfigError(f"尚不支持 Beta 发布平台/渠道: {platform}/{provider}")
         command = block.get("build_command")
         if not isinstance(command, str) or not command.strip():
@@ -121,6 +122,9 @@ def validate_beta(config: BetaConfig, env: str, platforms: list[str]) -> None:
                 raise ConfigError("Beta 构建不能指定非 prod 环境")
         if not config.artifact_patterns(platform):
             raise ConfigError(f"builds.{platform}.artifacts 未配置")
+        if platform == "android":
+            validate_google_play(config, publish)
+            continue
         for key in ("bundle_id", "key_id", "issuer_id", "key_file"):
             if not isinstance(publish.get(key), str) or not publish[key].strip():
                 raise ConfigError(f"builds.{platform}.publish.{key} 未填写")
@@ -149,3 +153,21 @@ def validate_beta(config: BetaConfig, env: str, platforms: list[str]) -> None:
             )
         if options.get("manageAppVersionAndBuildNumber", False):
             raise ConfigError("请关闭 manageAppVersionAndBuildNumber，保留项目版本号")
+
+
+def validate_google_play(config: BetaConfig, publish: dict) -> None:
+    for key in ("package_name", "service_account_file"):
+        if not isinstance(publish.get(key), str) or not publish[key].strip():
+            raise ConfigError(f"builds.android.publish.{key} 未填写")
+    if publish.get("track", "internal") != "internal":
+        raise ConfigError("Google Play Beta 仅支持 internal track")
+    if publish.get("release_status", "completed") not in ("draft", "completed"):
+        raise ConfigError("Google Play release_status 只能是 draft / completed")
+    try:
+        credentials = json.loads(resolve_path(config.project_root, publish["service_account_file"]).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ConfigError("无法读取 Google Play 服务账号 JSON 文件") from exc
+    if (not isinstance(credentials, dict) or credentials.get("type") != "service_account"
+        or not all(isinstance(credentials.get(k), str) and credentials[k].strip()
+                   for k in ("client_email", "private_key", "token_uri"))):
+        raise ConfigError("Google Play 服务账号 JSON 缺少有效的服务账号凭据")

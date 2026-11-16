@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..beta_config import BetaConfig
 from ..clients.feishu import FeishuClient
+from ..clients.google_play import upload_google_play
 from ..clients.testflight import upload_testflight
 from .artifacts import matching_files
 from .build import run_build
@@ -97,6 +98,13 @@ def run_beta_platform(
     if env != "prod":
         raise RuntimeError("Beta 发布仅支持 prod")
     block = config.platform_config("prod", platform)
+    if (platform, block["publish"].get("provider")) not in (
+        ("ios", "testflight"), ("android", "google_play")
+    ):
+        raise RuntimeError("尚不支持的 Beta 发布平台/渠道")
+    destination = "TestFlight" if platform == "ios" else "Google Play internal"
+    success = ("已上传 TestFlight，等待 Apple 处理。" if platform == "ios" else
+               f"已上传 Google Play internal（{block['publish'].get('release_status', 'completed')}），请在 Play Console 查看处理及分发状态。")
     uploaded = False
     try:
         with ios_release_lock(config.project_root, platform):
@@ -108,10 +116,14 @@ def run_beta_platform(
             before = artifact_snapshot(config, platform)
             run_build(config, "prod", platform, info)
             artifact = find_beta_artifact(config, platform, before)
-            validate_ipa(artifact, block["publish"]["bundle_id"], info)
-            upload_testflight(config, artifact, platform)
+            if platform == "ios":
+                validate_ipa(artifact, block["publish"]["bundle_id"], info)
+                upload_testflight(config, artifact, platform)
+            else:
+                validate_aab(artifact)
+                upload_google_play(config, artifact, platform)
             uploaded = True
-            print(f"{platform}: 已上传 TestFlight，等待 Apple 处理。")
+            print(f"{platform}: {success}")
             run_commands(
                 config.project_root,
                 block["next_commands"],
@@ -119,7 +131,7 @@ def run_beta_platform(
             )
     except Exception:
         message = (
-            "已上传 TestFlight，但后置命令失败；无需因此重复上传。"
+            f"已上传 {destination}，但后置命令失败；无需因此重复上传。"
             if uploaded
             else "Beta 构建或上传失败，已停止后续步骤，请查看打包机日志。"
         )
@@ -129,5 +141,17 @@ def run_beta_platform(
         config,
         platform=platform,
         info=info,
-        message="已上传 TestFlight，等待 Apple 处理。",
+        message=success,
     )
+
+
+def validate_aab(artifact: Path) -> None:
+    if artifact.suffix.lower() != ".aab":
+        raise RuntimeError("Google Play 发布产物必须为 AAB")
+    try:
+        with zipfile.ZipFile(artifact) as archive:
+            for name in ("BundleConfig.pb", "base/manifest/AndroidManifest.xml"):
+                if not archive.read(name):
+                    raise RuntimeError("AAB 缺少有效的配置或主模块 Manifest")
+    except (OSError, zipfile.BadZipFile, KeyError) as exc:
+        raise RuntimeError("无法读取有效的 AAB 产物") from exc

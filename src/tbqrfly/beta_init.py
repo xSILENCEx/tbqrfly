@@ -60,7 +60,7 @@ def init_beta(project_root: Path, *, force: bool = False) -> int:
         "请填写 builds.ios.publish 的 Bundle ID 与 Apple API Key 配置，并检查 prod 构建命令和 App Store 导出配置。"
     )
     print(
-        "模板包含 Android Google Play 配置示例，但发布器尚未实现；"
-        "当前请使用 --platform ios，运行 doctor 或默认 all 前请移除 builds.android。"
+        "Android 请填写包名和 Google Play 服务账号 JSON，默认发布到 internal；"
+        "单平台发布使用 --platform ios/android，不使用的平台可从配置移除。"
     )
     return 0

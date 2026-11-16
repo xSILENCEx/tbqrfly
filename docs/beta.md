@@ -1,18 +1,19 @@
 # 平台内测通道发布
 
 `tbqrfly beta` 使用独立的 `.tbqrfly/beta.json`，固定发布 prod release，不读取
-`builds.json`、`zealot.json` 或其中的前后置命令。目前实现 iOS → TestFlight；
-Android → Google Play 等渠道尚未实现，选中未支持的平台或 provider 会明确报错。
+`builds.json`、`zealot.json` 或其中的前后置命令。支持 iOS → TestFlight 和 Android → Google Play internal；
+选中未支持的平台或 provider 会明确报错。
 平台列表由 `builds` 动态读取，未配置的平台不会参与任务。
 
 ## 初始化与运行
 
 ```bash
 tbqrfly init --target beta
-# 当前仅使用 iOS 时，先从 beta.json 移除尚未支持的 builds.android 示例
+# 仅使用单个平台时，可移除另一个平台的配置
 tbqrfly doctor --target beta
 tbqrfly beta
 tbqrfly beta --platform ios
+tbqrfly beta --platform android
 tbqrfly beta --platform all
 ```
 
@@ -94,7 +95,8 @@ tbqrfly beta --platform all
 
 ## iOS 准备
 
-需要 macOS、Flutter、Git、完整 Xcode、Ruby >= 3.2、Bundler >= 2.4。
+需要 Flutter、Git、Ruby >= 3.2、Bundler >= 2.4。
+iOS 另需 macOS 和完整 Xcode；Android 另需 Java、Android SDK 及项目的 release 签名配置。
 `doctor --target beta` 检查本机命令、Ruby/Bundler 版本和配置文件；不访问 Apple，
 不验证证书可用性或 Apple 凭据权限。
 
@@ -154,16 +156,29 @@ Dart 符号、Crashlytics、原生 SDK 配置由项目脚本负责。已有
 `build_command`，将工具追加的参数转交给 Flutter，并在符号处理失败时非零退出；
 `next_commands` 位于上传之后，不适合承担上传前必须完成的检查。
 
-## 后续 Android 接入
+## Android Google Play 内测
 
-模板已包含 `builds.android`：prod AAB 构建、产物路径、前后置命令，以及
-`publish.provider: google_play`、包名、服务账号文件、`internal` track 和发布状态。
-`service_account_file` 通过 `${GOOGLE_PLAY_SERVICE_ACCOUNT_FILE}` 引用本机服务账号 JSON 文件。
-当前要仅使用 iOS，请使用 `--platform ios`；`doctor` 会检查所有已配置平台，
-默认选择及 `--platform all` 也会包含 Android，因此运行这些命令前需移除 Android 示例。
-后续实现 Android 发布器时，
-发布器可参考 ai-music 的 `upload_aab`：使用服务账号上传 AAB 到 `internal` track。
-当前版本尚未实现该 provider，不会调用项目 Fastlane 或静默跳过。
+`builds.android` 构建 prod AAB，`publish.provider` 为 `google_play`。
+填写 `package_name`，并通过 `${GOOGLE_PLAY_SERVICE_ACCOUNT_FILE}` 指向服务账号 JSON 文件
+（相对路径以项目根目录解析）。密钥内容不写入命令参数。
+
+在 Google Play Console 创建应用、完成首次上传及必要的应用设置，启用 Google Play
+Android Developer API，并为服务账号授予目标应用的内测发布权限。
+配置 release 签名，使 AAB 上传密钥与 Play Console 一致，且每次增加 versionCode。
+
+仅允许 `track: internal`；`release_status` 支持 `completed`（默认）和 `draft`。
+草稿不会自动分发，需在 Play Console 完成发布。上传成功不代表测试者已能立即安装，
+仍需检查 Google 的处理、审核状态和 internal 测试者名单。
+
+发布复用工具锁定的 Fastlane，调用 `upload_to_play_store`，不调用项目 Fastlane，
+不上传商店文案、更新日志、图片或截图。上传前要求唯一的本次 AAB，并检查 ZIP 中的
+BundleConfig 和主模块 Manifest；包名、签名和版本合法性由 Google Play 在上传时校验。
+上传失败停止后置步骤；上传成功后的命令失败会明确提示，避免重复上传。
+
+Android 可单独执行 `tbqrfly beta --platform android`；默认及 `--platform all`
+运行所有已配置平台。`doctor` 仅做本地检查，不验证服务账号线上权限。
 
 官方参考：[Fastlane TestFlight 上传](https://docs.fastlane.tools/actions/upload_to_testflight/)、
 [Apple API Key 配置](https://docs.fastlane.tools/actions/app_store_connect_api_key/)。
+
+Google Play 参考：[Fastlane supply 配置与服务账号准备](https://docs.fastlane.tools/actions/upload_to_play_store/)。

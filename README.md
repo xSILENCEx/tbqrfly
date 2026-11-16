@@ -62,7 +62,7 @@ tbqrfly refresh
 ## 平台内测通道
 
 使用独立的 `.tbqrfly/beta.json`，固定构建 prod，按平台配置前后置命令和发布器。
-目前支持 iOS TestFlight，Android Google Play 发布器后续加入。
+支持 iOS TestFlight 和 Android Google Play internal 内测通道。
 
 ```bash
 tbqrfly init --target beta
